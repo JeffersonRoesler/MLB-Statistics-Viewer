@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jefferson_Project1</title>
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            text-align: center;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4cc;
+        }
+        
+        h2 {
+            color: #333;
+        }
+        
+        label {
+            color: #555;
+        }
+        
+        select {
+            padding: 10px;
+            margin: 5px;
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 4px; 
+            transition: border-color 0.3s ease; 
+        }
+        
+        select:hover,
+        select:focus {
+            border-color: #999; 
+        }
+        
+        button {
+            padding: 10px 20px; 
+            margin: 10px;
+            background-color: #135528; 
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease; 
+        }
+        
+              
+        #teamsDiv,
+        #highlightDiv {
+            margin: 20px auto; 
+            max-width: 600px; 
+        }
+        
+        
+    </style>
+    <script language="JavaScript" type="text/JavaScript">
+        const ISOK = 200; //HTTP status code for a successful request - variables to manage requests below
+        var request = new XMLHttpRequest();
+        var scheduleData;
+        var currentIndex = 0;
+        var currentHighlightIndex = 0;
+		var gamePk = "";
+		var videoObj = {};
+
+        // function to make an asynchronous GET request to the URL. Parses the JSON response and calls the provided callback function
+        function getJSONAsync(url, callback) { 
+            request.onload = function () {
+                if (request.status === ISOK) {
+                    callback(JSON.parse(request.responseText));
+                }
+            };
+            request.open("GET", url, true);
+            request.send();
+        }
+        // function to retrieve and displays information about the current game.
+        function displaySchedule() {
+            var game = scheduleData.dates[0].games[currentIndex];
+            var homeTeam = game.teams.home.team.name;
+            var awayTeam = game.teams.away.team.name;
+            gamePk = game.gamePk;
+                    
+            document.getElementById("teamsDiv").innerHTML = "Home Team: " + homeTeam + "<br>Away Team: " + awayTeam;
+            
+			getVideoData();
+		}
+		
+        // function to request video data for the current game based on "gamePk" number (identifier)
+		function getVideoData() {
+			request.onload = function () {
+                if (request.status === ISOK) {
+                    videoObj = JSON.parse(request.responseText);
+                    displayHighlight(0);
+                }
+            };
+			
+			var videoUrl = "https://statsapi.mlb.com/api/v1/game/[gamePK]/content".replace("[gamePK]", gamePk);
+            request.open("GET", videoUrl, true);
+            request.send();
+		}
+
+        // function to display the specified video highlight by index
+        function displayHighlight(index) {
+            if (videoObj && videoObj.highlights && videoObj.highlights.highlights && videoObj.highlights.highlights.items) {
+                var highlights = videoObj.highlights.highlights.items;
+                var highlightDiv = document.getElementById("highlightDiv");
+                highlightDiv.innerHTML = ""; 
+        
+                if (index >= 0 && index < highlights.length) {
+                    var highlight = highlights[index];
+                    var title = highlight.title;
+                    var highlightElement = document.createElement("div");
+                    highlightElement.textContent = "Highlight: " + title;
+                    highlightDiv.appendChild(highlightElement);
+                } else {
+                    console.log("Invalid highlight index");
+            }
+        }}
+
+        // function to open a new window with the URL of the current highlight's video
+        function playVideo() {
+            var highlight = videoObj.highlights.highlights.items[currentHighlightIndex];
+			var videoUrl = highlight.playbacks[0].url 
+			window.open(videoUrl, '_blank').focus();
+        
+        }
+        
+
+        // functions getNext e getPrevious used to navigate between games
+        function getNext() {
+            if (currentIndex < scheduleData.dates[0].games.length - 1) {
+                currentIndex++;
+                displaySchedule();
+            }
+        }
+
+        function getPrevious() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                displaySchedule();
+            }
+        }
+        
+        var currentHighlightIndex = 0; // Initialize the current highlight index
+
+        // functions getNextHighLight e getPreviousHighlight used to navigate between highlights
+        function getNextHighlight() {
+            if (videoObj && videoObj.highlights && videoObj.highlights.highlights && videoObj.highlights.highlights.items) {
+            var highlights = videoObj.highlights.highlights.items;
+            if (currentHighlightIndex < highlights.length - 1) {
+            currentHighlightIndex++;
+            } else {
+                currentHighlightIndex = 0; // Loop back to the first highlight if at the end
+            }
+            displayHighlight(currentHighlightIndex);
+            }
+        }
+
+        
+        function getPreviousHighlight() {
+            if (videoObj && videoObj.highlights && videoObj.highlights.highlights && videoObj.highlights.highlights.items) {
+            var highlights = videoObj.highlights.highlights.items;
+            if (currentHighlightIndex > 0) {
+            currentHighlightIndex--;
+            } else {
+                currentHighlightIndex = highlights.length - 1; // Loop to the last highlight if at the beginning
+            }
+            displayHighlight(currentHighlightIndex);
+            }
+        }
+
+        // function to retrieve the game schedule for a specific date (year, month, day)
+        // it constructs the request URL with the specified date and makes an asynchronous GET request to MLB API
+        function retrieveMLBData() {
+            var year = document.getElementById("year").value;
+            var month = document.getElementById("month").value;
+            var day = document.getElementById("day").value;
+
+            var url = "https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&startDate=" + year + "-" + month + "-" + day + "&endDate=" + year + "-" + month + "-" + day;
+
+            getJSONAsync(url, function (data) {
+                scheduleData = data;
+                currentIndex = 0;
+                currentHighlightIndex = 0;
+                displaySchedule();
+            });
+        }
+    </script>
+</head>
+<body>
+    <h2>MLB Statistics</h2>
+    <label for="year">Year:</label>
+    <select id="year">
+        <option value="2019">2019</option>
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+    </select>
+
+    <label for="month">Month:</label>
+    <select id="month">
+        <option value="01">01</option>
+        <option value="02">02</option>
+        <option value="03">03</option>
+        <option value="04">04</option>
+        <option value="05">05</option>
+        <option value="06">06</option>
+        <option value="07">07</option>
+        <option value="08">08</option>
+        <option value="09">09</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+    </select>
+
+    <label for="day">Day:</label>
+    <select id="day">
+        <option value="01">01</option>
+        <option value="02">02</option>
+        <option value="03">03</option>
+        <option value="04">04</option>
+        <option value="05">05</option>
+        <option value="06">06</option>
+        <option value="07">07</option>
+        <option value="08">08</option>
+        <option value="09">09</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+        <option value="16">16</option>
+        <option value="17">17</option>
+        <option value="18">18</option>
+        <option value="19">19</option>
+        <option value="20">20</option>
+        <option value="21">21</option>
+        <option value="22">22</option>
+        <option value="23">23</option>
+        <option value="24">24</option>
+        <option value="25">25</option>
+        <option value="26">26</option>
+        <option value="27">27</option>
+        <option value="28">28</option>
+        <option value="29">29</option>
+        <option value="30">30</option>
+        <option value="31">31</option>
+    </select>
+
+    <button onclick="retrieveMLBData()">Retrieve MLB Data for this Date</button>
+
+    <div id="teamsDiv"></div>
+    <button onclick="getPrevious()">Previous Game for this date</button>
+    <button onclick="getNext()">Next Game for this date</button>
+
+    <div id="highlightDiv"></div>
+    <button onclick="getPreviousHighlight()">Previous Highlight</button>
+    <button onclick="getNextHighlight()">Next Highlight</button>
+
+    <button onclick="playVideo()">Run Playback for this Highlight</button>
+</body>
+</html>
